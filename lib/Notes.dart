@@ -1,0 +1,449 @@
+import 'package:flutter/material.dart';
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:fancy_button_flutter/fancy_button_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'Models/NotesPage.dart';
+
+class NotesPage extends StatefulWidget {
+  const NotesPage({Key? key}) : super(key: key);
+
+  @override
+  State<NotesPage> createState() => _NotesPageState();
+}
+
+class _NotesPageState extends State<NotesPage> {
+  var _formKey = GlobalKey<FormState>();
+
+  TextEditingController searchController = TextEditingController();
+  List<String> filteredNoteHeading = [];
+  List<String> filteredNoteDescription = [];
+
+  @override
+  void initState() {
+    super.initState();
+    notesDescriptionMaxLenth = notesDescriptionMaxLines * notesDescriptionMaxLines;
+  }
+
+  @override
+  void dispose() {
+    noteDescriptionController.dispose();
+    noteHeadingController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: notesHeader(),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.search),
+            onPressed: () {
+              showSearch(
+                context: context,
+                delegate: NotesSearchDelegate(),
+              );
+            },
+          ),
+        ],
+      ),
+      body: noteHeading.isNotEmpty
+          ? buildNotes()
+          : Center(child: Text("Add Notes...")),
+      floatingActionButton: FloatingActionButton(
+        mini: false,
+        backgroundColor: Colors.blueAccent,
+        onPressed: () {
+          _settingModalBottomSheet(context);
+        },
+        child: Icon(Icons.create),
+      ),
+    );
+  }
+
+  Widget buildNotes() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, left: 10, right: 10),
+      child: ListView.builder(
+        itemCount: filteredNoteHeading.isNotEmpty
+            ? filteredNoteHeading.length
+            : noteHeading.length,
+        itemBuilder: (context, index) {
+          final noteIndex = filteredNoteHeading.isNotEmpty ? index : noteHeading.length - index - 1;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 5.5),
+            child: Dismissible(
+              key: UniqueKey(),
+              direction: DismissDirection.horizontal,
+              onDismissed: (direction) {
+                setState(() {
+                  deletedNoteHeading = noteHeading[noteIndex];
+                  deletedNoteDescription = noteDescription[noteIndex];
+                  noteHeading.removeAt(noteIndex);
+                  noteDescription.removeAt(noteIndex);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: Colors.purple,
+                      content: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Note Deleted",
+                            style: TextStyle(),
+                          ),
+                          deletedNoteHeading.isNotEmpty
+                              ? GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                if (deletedNoteHeading.isNotEmpty) {
+                                  noteHeading.add(deletedNoteHeading);
+                                  noteDescription.add(deletedNoteDescription);
+                                }
+                                deletedNoteHeading = "";
+                                deletedNoteDescription = "";
+                              });
+                            },
+                            child: Text(
+                              "Undo",
+                              style: TextStyle(),
+                            ),
+                          )
+                              : SizedBox(),
+                        ],
+                      ),
+                    ),
+                  );
+                });
+              },
+              background: ClipRRect(
+                borderRadius: BorderRadius.circular(5.5),
+                child: Container(
+                  color: Colors.green,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 10),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                          ),
+                          Text(
+                            "Delete",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              secondaryBackground: ClipRRect(
+                borderRadius: BorderRadius.circular(5.5),
+                child: Container(
+                  color: Colors.red,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                          ),
+                          Text(
+                            "Delete",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              child: noteList(noteIndex),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget noteList(int index) {
+    bool isPinned = false; // Placeholder for pinned status, replace with actual logic
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(5.5),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: noteColor[(index % noteColor.length).floor()],
+          borderRadius: BorderRadius.circular(5.5),
+        ),
+        height: 100,
+        child: Row(
+          children: [
+            Container(
+              color: noteMarginColor[(index % noteMarginColor.length).floor()],
+              width: 3.5,
+              height: double.infinity,
+            ),
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 10, right: 10, top: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            filteredNoteHeading.isNotEmpty ? filteredNoteHeading[index] : noteHeading[index],
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 20.00,
+                              color: Colors.black,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined),
+                          onPressed: () {
+                            setState(() {
+                              isPinned = !isPinned; // Toggle pin status
+                              // You can implement pinning logic here
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 2.5),
+                    Flexible(
+                      child: Container(
+                        height: double.infinity,
+                        child: AutoSizeText(
+                          filteredNoteDescription.isNotEmpty ? filteredNoteDescription[index] : noteDescription[index],
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15.00,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  void _settingModalBottomSheet(context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      elevation: 50,
+      isDismissible: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(30),
+          topLeft: Radius.circular(30),
+        ),
+      ),
+      clipBehavior: Clip.antiAliasWithSaveLayer,
+      builder: (BuildContext bc) {
+        return Container(
+          color: Colors.white, // Set background color to white
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(top: 20, left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 20),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    "New Note",
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 20),
+                  TextFormField(
+                    maxLength: notesHeaderMaxLenth,
+                    controller: noteHeadingController,
+                    decoration: InputDecoration(
+                      hintText: "Note Heading",
+                      prefixIcon: Icon(Icons.title),
+                      filled: true,
+                      fillColor: Color(0xFF9ADCFF),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    validator: (String? value) {
+                      if (value == null || value.isEmpty) {
+                        return "Please enter a heading";
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 20),
+                  TextFormField(
+                    maxLines: 5,
+                    maxLength: notesDescriptionMaxLenth,
+                    controller: noteDescriptionController,
+                    decoration: InputDecoration(
+                      hintText: 'Description',
+                      filled: true,
+                      fillColor: Color(0xFF9ADCFF),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    validator: (String? value) {
+                      if (value == null || value.isEmpty) {
+                        return "Please enter a description";
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_formKey.currentState!.validate()) {
+                        setState(() {
+                          noteHeading.add(noteHeadingController.text);
+                          noteDescription.add(noteDescriptionController.text);
+                          noteHeadingController.clear();
+                          noteDescriptionController.clear();
+                        });
+                        Navigator.pop(context);
+                      }
+                    },
+                    style: ButtonStyle(
+                      backgroundColor: MaterialStateProperty.all(Color(0xFF2F93BA)),
+                      shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    child: Text("Save"),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
+
+
+
+
+}
+
+class NotesSearchDelegate extends SearchDelegate<String> {
+  @override
+  List<Widget> buildActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: Icon(Icons.clear),
+        onPressed: () {
+          query = '';
+        },
+      ),
+    ];
+  }
+
+  @override
+  Widget buildLeading(BuildContext context) {
+    return IconButton(
+      icon: Icon(Icons.arrow_back),
+      onPressed: () {
+        close(context, '');
+      },
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  Widget _buildSearchResults(BuildContext context) {
+    final List<String> noteTitles = noteHeading;
+    final List<String> noteContents = noteDescription;
+
+    final List<String> filteredTitles = noteTitles.where((title) => title.toLowerCase().contains(query.toLowerCase())).toList();
+    final List<String> filteredContents = noteContents.where((content) => content.toLowerCase().contains(query.toLowerCase())).toList();
+
+    final List<String> allFilteredNotes = [];
+    allFilteredNotes.addAll(filteredTitles);
+    allFilteredNotes.addAll(filteredContents);
+
+    return ListView.builder(
+      itemCount: allFilteredNotes.length,
+      itemBuilder: (context, index) {
+        return ListTile(
+          title: Text(allFilteredNotes[index]),
+          onTap: () {
+            close(context, allFilteredNotes[index]);
+          },
+        );
+      },
+    );
+  }
+}
+
+Widget notesHeader() {
+  return Padding(
+    padding: const EdgeInsets.only(top: 10, left: 2.5, right: 2.5),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "My Notes",
+          style: TextStyle(
+            color: Colors.blueAccent,
+            fontSize: 25.00,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Divider(
+          color: Colors.blueAccent,
+          thickness: 2.5,
+        ),
+      ],
+    ),
+  );
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "706830974756",
+    "project_id": "mynotess-b1149",
+    "storage_bucket": "mynotess-b1149.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:706830974756:android:8875c7227e6e3bd64ffdb1",
+        "android_client_info": {
+          "package_name": "com.example.login_signup"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2q3asRclbBOWla-6MvaOrFYOHxwXEtpU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
